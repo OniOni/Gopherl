@@ -41,18 +41,19 @@ process_file_data(Data) ->
 	   file_t_to_str(H) ++ process_file_data(T)
     end.	
     
+parse_menu(Menu) ->
+    lists:map(fun(File) -> Dir = Menu ++ "/", 
+				 case file:read_file_info(Dir ++ File) of
+				     {ok, Data} ->
+					 {File, element(3, Data)};
+				     Other -> {error, Other}
+				 end
+	      end, 
+	      element(2, file:list_dir(Menu))).
 	    
 
-list_menu(Menu) ->    
-    Tmp = lists:map(fun(File) -> Dir = Menu ++ "/", 
-			   case file:read_file_info(Dir ++ File) of
-			       {ok, Data} ->
-				   {File, element(3, Data)};
-			       Other -> {error, Other}
-			   end
-	      end, 
-	      element(2, file:list_dir(Menu))),
-    process_file_data(Tmp).
+list_menu(Menu) ->
+    process_file_data(parse_menu(Menu)).
 
 loop(Socket) ->
     inet:setopts(Socket, [{active, once}]),
