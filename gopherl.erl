@@ -1,11 +1,25 @@
 -module(gopherl).
 -author("Mathieu Sabourin").
 
--export([listen/1, start/1, list_menu/1]).
+-export([listen/1, start/1, list_menu/0, parse_menu/1]).
 
 -define(TCP_OPTIONS, [binary, {packet, 0}, {active, once}, {reuseaddr, true}]).
 
+central({init, Menu}) ->
+    Dict = dict:from_list(parse_menu(Menu)),
+    central(Dict);
+
+central(Dict) ->
+    receive
+	{get, Key, Pid} ->
+	    Pid ! dict:fetch(Key, Dict);
+	{all, Pid} ->
+	    Pid ! dict:to_list(Dict)
+    end,
+    central(Dict).
+
 start(Port) ->
+    register(central, spawn(fun() -> central({init, "files"}) end)),
     listen(Port).
 
 listen(Port) ->
@@ -52,8 +66,13 @@ parse_menu(Menu) ->
 	      element(2, file:list_dir(Menu))).
 	    
 
-list_menu(Menu) ->
-    process_file_data(parse_menu(Menu)).
+list_menu() ->
+    central ! {all, self()},
+    receive 
+	List ->
+	    io:format("Received~n"),
+	    process_file_data(List)
+    end.
 
 loop(Socket) ->
     inet:setopts(Socket, [{active, once}]),
@@ -63,7 +82,7 @@ loop(Socket) ->
 		[13, 10] -> %Receive CR LF
 		    io:format("Got CR LF~n"),
 		    gen_tcp:send(Socket, 
-				 list_menu("files"));
+				 list_menu());
 		Other ->
 		    io:format("Got ~w~n", [Other])
 	    end		
