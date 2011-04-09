@@ -6,7 +6,7 @@
 -define(TCP_OPTIONS, [binary, {packet, 0}, {active, once}, {reuseaddr, true}]).
 
 central({init, Menu}) ->
-    Dict = dict:from_list(parse_menu(Menu)),
+    Dict = dict:from_list(parse_menu_mine(Menu, init)),
     central(Dict);
 
 central(Dict) ->
@@ -53,10 +53,12 @@ accept(LSocket) ->
 
 file_t_to_str(T) ->
     case T of
-	{Name, directory} ->
-	    (((("1" ++ Name) ++ "\t") ++ Name) ++ "\tlocalhost\t7000\r\n");
-	{Name, regular} ->
-	    (((("0" ++ Name) ++ "\t") ++ Name) ++ "\tlocalhost\t7000\r\n")
+	{Name, {Dir, directory}} ->
+	    Path = (Dir ++ "/") ++ Name,
+	    (((("1" ++ Name) ++ "\t") ++ Path) ++ "\tlocalhost\t7000\r\n");
+	{Name, {Dir, regular}} ->
+	    Path = (Dir ++ "/") ++ Name,
+	    (((("0" ++ Name) ++ "\t") ++ Path) ++ "\tlocalhost\t7000\r\n")
     end.
 
 process_file_data(Data) ->
@@ -139,12 +141,13 @@ clean(Str) ->
     (((Str -- " ") -- "\n") -- "\r").
 
 answer(Request) ->
-    central ! {get, clean(Request), self()},
+    Tmp = lists:last(string:tokens(clean(Request), "/")),    
+    central ! {get, clean(Tmp), self()},
     receive 
-	{ok, directory} ->
-	    process_file_data(parse_menu_mine("files/" ++ clean(Request), init));
-	{ok, regular} ->
-	    read_all(init, "files/" ++ clean(Request)) ++ "\r\n";
+	{ok, {_, directory}} ->
+	    process_file_data(parse_menu_mine(clean(Request), init));
+	{ok, {_, regular}} ->
+	    read_all(init, clean(Request)) ++ "\r\n";
 	error ->	    
 	    "File Not Found\r\n"
     end.
