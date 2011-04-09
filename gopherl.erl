@@ -17,12 +17,12 @@ central(Dict) ->
 	    Pid ! dict:to_list(Dict);
 	{menu, Pid} ->
 	    Pid ! dict:to_list(
-		    dict:filter(fun(Key, _) ->
-					case list:member($/, Key) of
-					    true ->
-						false;
-					    fasle ->
-						true
+		    dict:filter(fun(_, Value) ->
+					case Value of
+					    {"files", _} ->
+						true;
+					    Other ->
+						false
 					end
 				end,
 			       Dict)
@@ -115,7 +115,7 @@ parse_menu_mine(Menu, List) ->
     end.
 		
 list_menu() ->
-    central ! {all, self()},
+    central ! {menu, self()},
     receive 
 	List ->
 	    process_file_data(List)
