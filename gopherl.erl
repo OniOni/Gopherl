@@ -83,7 +83,7 @@ parse_file(Menu, File) ->
     Dir = Menu ++ "/", 
     case file:read_file_info(Dir ++ File) of
 	{ok, Data} ->
-	    {File, element(3, Data)};
+	    {File, {Menu,element(3, Data)}};
 	Other -> 
 	    {error, Other}    
     end.
@@ -94,9 +94,22 @@ parse_menu_mine(Menu, init) ->
 parse_menu_mine(Menu, List) ->
     case List of
 	[H | []] ->
-	    [parse_file(Menu, H)];
+	    Tmp = parse_file(Menu, H),
+	    case Tmp of 
+		{Name, {_, directory}} ->
+		    [Tmp] ++ parse_menu_mine((Menu ++ "/") ++ Name, init);
+		{_, {_, regular}} ->
+		    [Tmp]
+	    end;
 	[H | T] ->
-	    [parse_file(Menu, H)] ++ parse_menu_mine(Menu, T)
+	    Tmp = parse_file(Menu, H),
+	    case Tmp of 
+		{Name, {_, directory}} ->
+		    ([Tmp] ++ parse_menu_mine((Menu ++ "/") ++ Name, init))
+			++ parse_menu_mine(Menu, T);
+		{_, {_, regular}} ->
+		    [Tmp] ++ parse_menu_mine(Menu, T)
+	    end	
     end.
 		
 list_menu() ->
