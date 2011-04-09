@@ -12,7 +12,7 @@ central({init, Menu}) ->
 central(Dict) ->
     receive
 	{get, Key, Pid} ->
-	    Pid ! dict:fetch(Key, Dict);
+	    Pid ! dict:find(Key, Dict);
 	{all, Pid} ->
 	    Pid ! dict:to_list(Dict)
     end,
@@ -42,9 +42,9 @@ accept(LSocket) ->
 file_t_to_str(T) ->
     case T of
 	{Name, directory} ->
-	    (((("1" ++ Name) ++ "\t") ++ Name) ++ "\tlocalhost\t70\r\n");
+	    (((("1" ++ Name) ++ "\t") ++ Name) ++ "\tlocalhost\t7000\r\n");
 	{Name, regular} ->
-	    (((("0" ++ Name) ++ "\t") ++ Name) ++ "\tlocalhost\t70\r\n")
+	    (((("0" ++ Name) ++ "\t") ++ Name) ++ "\tlocalhost\t7000\r\n")
     end.
 
 process_file_data(Data) ->
@@ -70,8 +70,37 @@ list_menu() ->
     central ! {all, self()},
     receive 
 	List ->
-	    io:format("Received~n"),
 	    process_file_data(List)
+    end.
+
+read_all(init, File) ->    
+    {ok, Io} = file:open(File, read),
+    read_all(Io, []);
+
+read_all(Io, Data) ->
+    case file:read_line(Io) of
+	{ok, More} ->
+	    read_all(Io, Data ++ More);
+	eof ->
+	    file:close(Io),
+	    Data;
+	Other ->
+	    io:format("got ~p~n", [Other]),
+	    Data
+    end.
+
+clean(Str) ->
+    (((Str -- " ") -- "\n") -- "\r").
+
+answer(Request) ->
+    central ! {get, clean(Request), self()},
+    receive 
+	{ok, directory} ->
+	    process_file_data(parse_menu("files/" ++ clean(Request)));
+	{ok, regular} ->
+	    read_all(init, "files/" ++ clean(Request)) ++ "\r\n";
+	{error} ->
+	    "File Not Found\r\n"
     end.
 
 loop(Socket) ->
@@ -83,8 +112,12 @@ loop(Socket) ->
 		    io:format("Got CR LF~n"),
 		    gen_tcp:send(Socket, 
 				 list_menu());
-		Other ->
-		    io:format("Got ~w~n", [Other])
+		File ->
+		    io:format("Got ~p~n", [clean(File)]),
+		    gen_tcp:send(Socket, 
+				 answer(File))
+						%Other ->
+						%   io:format("Got ~w~n", [Other])
 	    end		
     end.
 
