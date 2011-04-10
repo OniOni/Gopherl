@@ -24,7 +24,7 @@ central(Dict) ->
 						    true ->
 							false
 						end;
-					    Other ->
+					    _Other ->
 						false
 					end
 				end,
@@ -38,7 +38,7 @@ central(Dict) ->
 					case Value of
 					    {"files", _} ->
 						true;
-					    Other ->
+					    _Other ->
 						false
 					end
 				end,
