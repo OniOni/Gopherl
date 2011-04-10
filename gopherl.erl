@@ -13,6 +13,23 @@ central(Dict) ->
     receive
 	{get, Key, Pid} ->
 	    Pid ! dict:find(Key, Dict);
+	{getDir, Dir, Pid} ->
+	    Pid ! dict:to_list(
+		    dict:filter(fun(_, Value) ->
+					case Value of
+					    {Dir2, _} ->
+						if
+						    Dir == Dir2 ->
+							true;
+						    true ->
+							false
+						end;
+					    Other ->
+						false
+					end
+				end,
+			       Dict)
+		   );
 	{all, Pid} ->
 	    Pid ! dict:to_list(Dict);
 	{menu, Pid} ->
@@ -65,8 +82,7 @@ process_file_data(Data) ->
     case Data of
 	[H | []] ->
 	    file_t_to_str(H) ++ ".\r\n";
-	[H | T] ->
-	    
+	[H | T] ->	    
 	    file_t_to_str(H) ++ process_file_data(T)
     end.	
     
@@ -74,7 +90,7 @@ parse_menu(Menu) ->
     lists:map(fun(File) -> Dir = Menu ++ "/", 
 			   case file:read_file_info(Dir ++ File) of
 			       {ok, Data} ->
-				   {File, element(3, Data)};
+				   {File, {Menu, element(3, Data)}};
 			       Other -> 
 				   {error, Other}
 			   end
@@ -145,7 +161,11 @@ answer(Request) ->
     central ! {get, clean(Tmp), self()},
     receive 
 	{ok, {_, directory}} ->
-	    process_file_data(parse_menu_mine(clean(Request), init));
+	    central ! {getDir, clean(Request), self()},
+	    receive 
+		List ->
+		    process_file_data(List)
+	    end;
 	{ok, {_, regular}} ->
 	    read_all(init, clean(Request)) ++ "\r\n";
 	error ->	    
